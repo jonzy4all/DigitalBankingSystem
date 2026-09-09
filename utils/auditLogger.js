@@ -11,7 +11,11 @@ const sensitiveKeys =
     "authorization",
     "apiKey",
     "apiSecret",
-    "EMAIL_PASS",
+    "BREVO_API_KEY",
+    "NIBSS_API_KEY",
+    "NIBSS_API_SECRET",
+    "JWT_SECRET",
+    "ADMIN_API_KEY",
   ]);
 
 const sanitize = (value) => {
