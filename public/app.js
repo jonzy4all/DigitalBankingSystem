@@ -2,6 +2,7 @@ const API_BASE = "";
 const TOKEN_KEY = "oma_bank_session_token";
 const USER_KEY = "oma_bank_session_user";
 const ONBOARDING_KEY = "oma_bank_onboarding";
+const THEME_KEY = "oma_bank_theme";
 
 const app = document.getElementById("app");
 const toastRoot = document.getElementById("toast-root");
@@ -15,6 +16,7 @@ const icons = {
   user: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 22c.7-4.2 3.4-6 8-6s7.3 1.8 8 6"/></svg>`,
   logout: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M13 3h7a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-7"/></svg>`,
   eye: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>`,
+  eyeOff: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="m3 3 18 18"/><path d="M10.6 10.7a2 2 0 0 0 2.7 2.7"/><path d="M9.9 4.2A10.8 10.8 0 0 1 12 4c6.5 0 10 6 10 6a18 18 0 0 1-3 3.7"/><path d="M6.2 6.2C3.5 8 2 12 2 12s3.5 6 10 6c1.7 0 3.1-.4 4.4-1"/></svg>`,
   copy: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
   download: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>`,
   refresh: `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 7h-6V1"/><path d="M20 7a9 9 0 1 0 1 7"/></svg>`,
@@ -36,6 +38,83 @@ const state = {
 function safeJson(value) {
   try { return value ? JSON.parse(value) : null; } catch { return null; }
 }
+
+function getPreferredTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === "light" || saved === "dark") return saved;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  const next = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem(THEME_KEY, next);
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.content = next === "dark" ? "#08120f" : "#071a17";
+  document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
+    const switchingTo = next === "dark" ? "light" : "dark";
+    button.setAttribute("aria-label", `Switch to ${switchingTo} theme`);
+    button.setAttribute("title", `Switch to ${switchingTo} theme`);
+    const symbol = button.querySelector("[data-theme-symbol]");
+    const label = button.querySelector("[data-theme-label]");
+    if (symbol) symbol.textContent = next === "dark" ? "☀" : "☾";
+    if (label) label.textContent = next === "dark" ? "Light" : "Dark";
+  });
+}
+
+function themeToggleMarkup(compact = false) {
+  return `<button class="theme-toggle ${compact ? "theme-toggle-compact" : ""}" type="button" data-theme-toggle aria-label="Toggle theme"><span class="theme-symbol" data-theme-symbol></span><span data-theme-label>${compact ? "" : "Theme"}</span></button>`;
+}
+
+function enhanceSecretInputs(root = document) {
+  root.querySelectorAll?.('input[type="password"]:not([data-secret-enhanced])').forEach((input) => {
+    input.dataset.secretEnhanced = "true";
+    const wrap = document.createElement("div");
+    wrap.className = "secret-field";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secret-toggle";
+    button.setAttribute("aria-label", "Show value");
+    button.setAttribute("title", "Show value");
+    button.innerHTML = icons.eye;
+    button.addEventListener("click", () => {
+      const reveal = input.type === "password";
+      input.type = reveal ? "text" : "password";
+      button.innerHTML = reveal ? icons.eyeOff : icons.eye;
+      button.setAttribute("aria-label", reveal ? "Hide value" : "Show value");
+      button.setAttribute("title", reveal ? "Hide value" : "Show value");
+      input.focus({ preventScroll: true });
+    });
+    wrap.appendChild(button);
+  });
+}
+
+applyTheme(getPreferredTheme());
+
+document.addEventListener("click", (event) => {
+  const toggle = event.target.closest?.("[data-theme-toggle]");
+  if (!toggle) return;
+  const current = document.documentElement.dataset.theme || "light";
+  applyTheme(current === "dark" ? "light" : "dark");
+});
+
+const secretObserver = new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        enhanceSecretInputs(node);
+        if (node.matches?.("[data-theme-toggle]") || node.querySelector?.("[data-theme-toggle]")) {
+          applyTheme(document.documentElement.dataset.theme || getPreferredTheme());
+        }
+      }
+    }
+  }
+});
+secretObserver.observe(document.body, { childList: true, subtree: true });
+enhanceSecretInputs(document);
 
 function escapeHtml(value = "") {
   return String(value)
@@ -215,7 +294,7 @@ function authLayout(content, mode = "default") {
         </div>
         <div class="auth-trust"><span><i></i>Secure sign in</span><span><i></i>NIBSS-powered banking</span><span><i></i>Protected transfers</span></div>
       </section>
-      <section class="auth-panel">${content}</section>
+      <section class="auth-panel"><div class="auth-theme-control">${themeToggleMarkup()}</div>${content}</section>
     </main>`;
 }
 
@@ -254,7 +333,8 @@ function appShell(content, active = "dashboard", title = "Dashboard") {
             <strong class="topbar-title">${escapeHtml(title)}</strong>
           </div>
           <div class="row">
-            <span class="muted small">${new Intl.DateTimeFormat("en-NG", { weekday: "short", day: "numeric", month: "short" }).format(new Date())}</span>
+            ${themeToggleMarkup(true)}
+            <span class="muted small topbar-date">${new Intl.DateTimeFormat("en-NG", { weekday: "short", day: "numeric", month: "short" }).format(new Date())}</span>
             <div class="avatar">${initials(first,last)}</div>
           </div>
         </header>
@@ -274,6 +354,7 @@ async function ensureProfile() {
 }
 
 function bindShell() {
+  applyTheme(document.documentElement.dataset.theme || getPreferredTheme());
   document.getElementById("logout-link")?.addEventListener("click", (e) => {
     e.preventDefault(); clearSession(); navigate("login");
   });

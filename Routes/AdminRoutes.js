@@ -84,6 +84,12 @@ router.get(
 // ------------------------------------------------------
 
 router.patch(
+  "/accounts/:accountNumber/block",
+  adminMiddleware,
+  adminController.blockAccount
+);
+
+router.patch(
   "/accounts/:accountNumber/unblock",
   adminMiddleware,
   adminController.unblockAccount

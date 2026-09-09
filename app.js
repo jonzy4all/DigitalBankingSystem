@@ -50,6 +50,16 @@ app.use(
   express.static(path.join(__dirname, "public"))
 );
 
+// ======================================================
+// ADMIN FRONTEND
+// ======================================================
+// Admin API requests are still protected by ADMIN_API_KEY. The key is entered
+// by the administrator at sign-in and is not embedded in the frontend source.
+app.use(
+  "/admin-app",
+  express.static(path.join(__dirname, "admin"))
+);
+
 // Direct password-reset URL used by emails. The browser receives index.html
 // and public/app.js reads the ?token= value to render the reset form.
 app.get(
@@ -69,6 +79,10 @@ app.get("/", (req, res) => {
   res.json({
     success: true,
     message: "OMA Bank API is running",
+    interfaces: {
+      customer: "/app/",
+      admin: "/admin-app/",
+    },
   });
 });
 

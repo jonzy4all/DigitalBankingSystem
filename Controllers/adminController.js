@@ -9,6 +9,115 @@ const {
 
 
 // ======================================================
+// ADMIN BLOCK CUSTOMER ACCOUNT
+// ======================================================
+exports.blockAccount = async (req, res) => {
+  try {
+    const { accountNumber } = req.params;
+    const reason = String(req.body?.reason || "").trim();
+
+    if (!accountNumber || !/^\d{10}$/.test(accountNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid 10-digit account number is required",
+      });
+    }
+
+    if (reason.length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: "A reason for blocking the account is required",
+      });
+    }
+
+    const account = await Account.findOne({ accountNumber });
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "Bank account not found",
+      });
+    }
+
+    if (account.status === "CLOSED") {
+      return res.status(403).json({
+        success: false,
+        message: "A closed account cannot be blocked",
+      });
+    }
+
+    const customer = await Customer.findById(account.customer);
+
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer linked to account was not found",
+      });
+    }
+
+    if (account.status === "BLOCKED" && customer.status === "BLOCKED") {
+      return res.status(200).json({
+        success: true,
+        message: "Account is already blocked",
+        data: {
+          accountNumber: account.accountNumber,
+          accountStatus: account.status,
+          customerStatus: customer.status,
+        },
+      });
+    }
+
+    const blockedAt = new Date();
+
+    customer.status = "BLOCKED";
+    customer.blockedAt = blockedAt;
+    customer.blockReason = reason;
+    customer.blockedBy = "ADMIN";
+
+    account.status = "BLOCKED";
+    account.blockedAt = blockedAt;
+    account.blockReason = reason;
+    account.blockedBy = "ADMIN";
+
+    await customer.save();
+    await account.save();
+
+    await logAudit({
+      req,
+      customer: customer._id,
+      account: account._id,
+      action: "ACCOUNT_BLOCK",
+      status: "SUCCESS",
+      message: "Account blocked by administrator",
+      metadata: {
+        accountNumber: account.accountNumber,
+        reason,
+        adminSource: "INTERNAL_ADMIN",
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Account blocked successfully",
+      data: {
+        accountNumber: account.accountNumber,
+        accountName: account.accountName,
+        customerStatus: customer.status,
+        accountStatus: account.status,
+        reason,
+      },
+    });
+  } catch (error) {
+    console.error("Admin block error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to block account",
+      error: error.message,
+    });
+  }
+};
+
+// ======================================================
 // ADMIN UNBLOCK CUSTOMER ACCOUNT
 // ======================================================
 exports.unblockAccount = async (
