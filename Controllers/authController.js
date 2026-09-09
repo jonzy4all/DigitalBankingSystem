@@ -953,10 +953,33 @@ exports.forgotPassword = async (
 
     const frontendUrl =
       process.env.FRONTEND_RESET_URL ||
-      "http://localhost:3000/reset-password";
+      "http://localhost:8001/app/reset-password";
+
+    // Build a normal HTTPS URL instead of placing the reset token
+    // inside a hash fragment. This works more reliably when users
+    // open the link from email clients and on Render.
+    const resetUrlObject =
+      new URL(frontendUrl);
+
+    // Backward compatibility: if the environment variable still uses
+    // the old /app/#/reset-password format, convert it automatically.
+    if (
+      resetUrlObject.hash.includes(
+        "reset-password"
+      )
+    ) {
+      resetUrlObject.pathname =
+        `${resetUrlObject.pathname.replace(/\/$/, "")}/reset-password`;
+      resetUrlObject.hash = "";
+    }
+
+    resetUrlObject.searchParams.set(
+      "token",
+      resetToken
+    );
 
     const resetUrl =
-      `${frontendUrl}?token=${resetToken}`;
+      resetUrlObject.toString();
 
     const message = `
 Hello ${customer.firstName},

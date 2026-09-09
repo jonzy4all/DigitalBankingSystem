@@ -50,6 +50,21 @@ app.use(
   express.static(path.join(__dirname, "public"))
 );
 
+// Direct password-reset URL used by emails. The browser receives index.html
+// and public/app.js reads the ?token= value to render the reset form.
+app.get(
+  "/app/reset-password",
+  (req, res) => {
+    res.sendFile(
+      path.join(
+        __dirname,
+        "public",
+        "index.html"
+      )
+    );
+  }
+);
+
 app.get("/", (req, res) => {
   res.json({
     success: true,

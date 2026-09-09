@@ -67,12 +67,34 @@ function initials(first = "O", last = "M") {
 }
 
 function getHashParts() {
+  // Password reset emails use a real URL such as:
+  // /app/reset-password?token=...
+  // Handle that path before the normal hash-based SPA routes.
+  const path = location.pathname.replace(/\/+$/, "");
+  if (path.endsWith("/app/reset-password")) {
+    return {
+      route: "reset-password",
+      params: new URLSearchParams(location.search),
+    };
+  }
+
+  // Backward compatibility with links already sent in the old format:
+  // /app/#/reset-password?token=...
   const raw = location.hash.replace(/^#\/?/, "") || (state.token ? "dashboard" : "login");
   const [pathPart, queryPart = ""] = raw.split("?");
   return { route: pathPart || "login", params: new URLSearchParams(queryPart) };
 }
 
 function navigate(route) {
+  // If the user entered through the direct email reset URL, leave that
+  // pathname before navigating to the normal hash-based application.
+  if (location.pathname.replace(/\/+$/, "").endsWith("/app/reset-password")) {
+    const appPath = location.pathname.replace(/reset-password\/?$/, "");
+    history.replaceState(null, "", `${appPath}#/${route}`);
+    routeApp();
+    return;
+  }
+
   location.hash = `#/${route}`;
 }
 
@@ -681,7 +703,7 @@ function notFoundPage() {
   if(state.token) bindShell();
 }
 
-async function route() {
+async function routeApp() {
   const { route, params } = getHashParts();
   const publicRoutes = new Set(["login","forgot-password","reset-password","onboarding"]);
   if (!state.token && !publicRoutes.has(route)) return navigate("login");
@@ -707,8 +729,20 @@ async function route() {
   }
 }
 
-window.addEventListener("hashchange", route);
+window.addEventListener("hashchange", routeApp);
 window.addEventListener("DOMContentLoaded", () => {
-  if (!location.hash) navigate(state.token ? "dashboard" : "login");
-  else route();
+  const directResetPath =
+    location.pathname.replace(/\/+$/, "").endsWith("/app/reset-password");
+
+  if (directResetPath) {
+    routeApp();
+    return;
+  }
+
+  if (!location.hash) {
+    navigate(state.token ? "dashboard" : "login");
+    return;
+  }
+
+  routeApp();
 });
