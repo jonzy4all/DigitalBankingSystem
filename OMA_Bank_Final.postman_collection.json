@@ -1,0 +1,948 @@
+{
+  "info": {
+    "_postman_id": "ec1a6eeb-4f5a-43bc-9e2b-fd1f26312687",
+    "name": "OMA Bank Final API",
+    "description": "Submission-ready Postman collection for the OMA Bank backend. Set collection/environment variables before running requests. Never store real secrets in an exported collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8001"
+    },
+    {
+      "key": "customerToken",
+      "value": ""
+    },
+    {
+      "key": "adminApiKey",
+      "value": ""
+    },
+    {
+      "key": "onboardingId",
+      "value": ""
+    },
+    {
+      "key": "customerAccountNumber",
+      "value": ""
+    },
+    {
+      "key": "recipientAccountNumber",
+      "value": ""
+    },
+    {
+      "key": "transactionReference",
+      "value": ""
+    },
+    {
+      "key": "idempotencyKey",
+      "value": "oma-transfer-test-001"
+    },
+    {
+      "key": "email",
+      "value": "customer@example.com"
+    },
+    {
+      "key": "password",
+      "value": "ChangeMe123!"
+    },
+    {
+      "key": "newPassword",
+      "value": "ChangeMe456!"
+    },
+    {
+      "key": "transferPin",
+      "value": "2580"
+    },
+    {
+      "key": "newTransferPin",
+      "value": "3691"
+    },
+    {
+      "key": "resetToken",
+      "value": ""
+    },
+    {
+      "key": "kycType",
+      "value": "BVN"
+    },
+    {
+      "key": "kycID",
+      "value": "12345678901"
+    },
+    {
+      "key": "firstName",
+      "value": "John"
+    },
+    {
+      "key": "lastName",
+      "value": "Doe"
+    },
+    {
+      "key": "dob",
+      "value": "1990-01-01"
+    },
+    {
+      "key": "phone",
+      "value": "08000000000"
+    },
+    {
+      "key": "fromDate",
+      "value": "2026-09-01"
+    },
+    {
+      "key": "toDate",
+      "value": "2026-09-30"
+    }
+  ],
+  "item": [
+    {
+      "name": "00 - Health",
+      "item": [
+        {
+          "name": "API Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"API is running\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - Onboarding",
+      "item": [
+        {
+          "name": "KYC Onboarding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/onboarding/kyc",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kycType\": \"{{kycType}}\",\n  \"kycID\": \"{{kycID}}\",\n  \"firstName\": \"{{firstName}}\",\n  \"lastName\": \"{{lastName}}\",\n  \"dob\": \"{{dob}}\",\n  \"phone\": \"{{phone}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Request completed\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 409]);",
+                  "});",
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const id = json?.data?.onboardingId || json?.onboardingId;",
+                  "if (id) pm.collectionVariables.set(\"onboardingId\", id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 - Account",
+      "item": [
+        {
+          "name": "Create Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/account/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"onboardingId\": \"{{onboardingId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Account request completed\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const no = json?.account?.accountNumber || json?.data?.accountNumber;",
+                  "if (no) pm.collectionVariables.set(\"customerAccountNumber\", no);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "03 - Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"onboardingId\": \"{{onboardingId}}\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Successful authentication\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const token = json?.data?.token || json?.token;",
+                  "if (token) pm.collectionVariables.set(\"customerToken\", token);",
+                  "const accountNumber = json?.data?.accountNumber || json?.account?.accountNumber;",
+                  "if (accountNumber) pm.collectionVariables.set(\"customerAccountNumber\", accountNumber);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Successful authentication\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const token = json?.data?.token || json?.token;",
+                  "if (token) pm.collectionVariables.set(\"customerToken\", token);",
+                  "const accountNumber = json?.data?.accountNumber || json?.account?.accountNumber;",
+                  "if (accountNumber) pm.collectionVariables.set(\"customerAccountNumber\", accountNumber);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/me",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/change-password",
+            "description": "Changes the password. If successful, update your password collection variable before subsequent login tests.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Successful authentication\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const token = json?.data?.token || json?.token;",
+                  "if (token) pm.collectionVariables.set(\"customerToken\", token);",
+                  "const accountNumber = json?.data?.accountNumber || json?.account?.accountNumber;",
+                  "if (accountNumber) pm.collectionVariables.set(\"customerAccountNumber\", accountNumber);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/forgot-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/reset-password/{resetToken}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"newPassword\": \"{{newPassword}}\",\n  \"confirmPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Successful authentication\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const token = json?.data?.token || json?.token;",
+                  "if (token) pm.collectionVariables.set(\"customerToken\", token);",
+                  "const accountNumber = json?.data?.accountNumber || json?.account?.accountNumber;",
+                  "if (accountNumber) pm.collectionVariables.set(\"customerAccountNumber\", accountNumber);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Security Activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/auth/security-activity",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set Transfer PIN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/transfer-pin",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{password}}\",\n  \"pin\": \"{{transferPin}}\",\n  \"confirmPin\": \"{{transferPin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Change Transfer PIN",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/transfer-pin",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPin\": \"{{transferPin}}\",\n  \"newPin\": \"{{newTransferPin}}\",\n  \"confirmPin\": \"{{newTransferPin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Block Account - DANGEROUS TEST",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/block-account",
+            "description": "This blocks the customer and linked local account. Run only when you intend to test admin unblock.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"{{password}}\",\n  \"reason\": \"Security test - customer requested block\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Banking",
+      "item": [
+        {
+          "name": "Live Balance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/banking/balance",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Name Enquiry",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/banking/name-enquiry/{recipientAccountNumber}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Transfer - New",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/banking/transfer",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{recipientAccountNumber}}\",\n  \"amount\": 500,\n  \"description\": \"Postman transfer test\",\n  \"pin\": \"{{transferPin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Transfer request completed\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "let json = {};",
+                  "try { json = pm.response.json(); } catch (e) {}",
+                  "const ref = json?.data?.reference || json?.reference;",
+                  "if (ref) pm.collectionVariables.set(\"transactionReference\", ref);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transfer - Duplicate Same Idempotency Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/banking/transfer",
+            "description": "Run immediately after Transfer - New without changing idempotencyKey, amount, or recipient.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"{{recipientAccountNumber}}\",\n  \"amount\": 500,\n  \"description\": \"Postman transfer test\",\n  \"pin\": \"{{transferPin}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Duplicate request returned original transaction\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "    pm.expect(json.duplicate).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transaction History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/banking/transactions",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Transaction Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/banking/transactions/{transactionReference}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Transaction Status (TSQ)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/banking/transaction-status/{transactionReference}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Statement JSON",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/banking/statement?from={fromDate}&to={toDate}&page=1&limit=20&sort=desc",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Statement PDF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/banking/statement/pdf?from={fromDate}&to={toDate}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Transaction Receipt PDF",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/banking/transactions/{transactionReference}/receipt",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Admin",
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/dashboard"
+          }
+        },
+        {
+          "name": "Customers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/customers?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/accounts?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Blocked Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/blocked-accounts"
+          }
+        },
+        {
+          "name": "Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/transactions?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Audit Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/audit-logs?page=1&limit=50"
+          }
+        },
+        {
+          "name": "Unblock Account",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/accounts/{customerAccountNumber}/unblock"
+          }
+        },
+        {
+          "name": "Reconcile Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-admin-key",
+                "value": "{{adminApiKey}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": "{{baseUrl}}/admin/accounts/reconcile",
+            "description": "Recovery/admin endpoint. Ensure Routes/AdminRoutes.js mounts accountController.reconcileAccount here and remove public /account/reconcile.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"onboardingId\": \"{{onboardingId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
